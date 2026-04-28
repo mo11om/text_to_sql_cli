@@ -1,0 +1,10 @@
+# ── 運行時依賴 (Runtime Dependencies) ──────────────────────────────────────────
+openai>=1.25.0          # OpenAI / Ollama 相容 API 客戶端
+python-dotenv>=1.0.0    # 讀取 .env 環境檔
+pydantic>=2.6.0         # 結構化輸出 (SQLResponse)
+rich>=13.7.0            # 終端美化輸出 (Rich table / JSON)
+requests>=2.31.0        # 備用 HTTP 請求 (Ollama health check)
+
+# ── 測試依賴 (Testing Dependencies) ────────────────────────────────────────────
+pytest>=8.1.0           # 測試框架
+pytest-timeout>=2.3.0   # 每個測試設定超時上限
