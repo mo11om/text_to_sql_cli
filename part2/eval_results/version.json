@@ -1,8 +1,0 @@
-{
-  "model_name": "ollama",
-  "model_version": "qwen3.6:27b",
-  "prompt_version": "v5",
-  "schema_version": "college_2_v1",
-  "dataset_version": "eval_data_v1",
-  "timestamp": "2026-04-29T20:42:54.509001"
-}
