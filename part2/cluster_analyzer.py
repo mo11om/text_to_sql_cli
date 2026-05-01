@@ -22,7 +22,7 @@ from typing import Any, Optional
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "part1", ".env"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
