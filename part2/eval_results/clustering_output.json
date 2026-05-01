@@ -1,0 +1,63 @@
+{
+  "clusters": [
+    {
+      "name": "LLM_Generation_Failure",
+      "description": "Model failed to produce any SQL output (generated_sql is null), typically due to internal processing errors, prompt complexity, or inability to map natural language to schema.",
+      "example_ids": [
+        10,
+        18,
+        22,
+        24
+      ],
+      "is_valid": true,
+      "confidence": 1.0,
+      "size": 4,
+      "validated_examples": [
+        10,
+        18,
+        22,
+        24
+      ],
+      "rejected_examples": []
+    },
+    {
+      "name": "Aggregation_and_Grouping_Errors",
+      "description": "Queries involving GROUP BY, aggregate functions (COUNT, MAX), or subqueries for group-wise calculations. Failures likely stem from incorrect aggregation logic, missing HAVING clauses, or improper subquery structuring.",
+      "example_ids": [
+        14,
+        15,
+        23
+      ],
+      "is_valid": true,
+      "confidence": 1.0,
+      "size": 3,
+      "validated_examples": [
+        14,
+        15,
+        23
+      ],
+      "rejected_examples": []
+    },
+    {
+      "name": "Join_and_Filtering_Issues",
+      "description": "Queries relying on table joins or WHERE clause filtering. Failures may be due to incorrect join keys, missing joins, schema confusion, or improper condition application despite syntactically valid SQL.",
+      "example_ids": [
+        9,
+        27,
+        29,
+        30
+      ],
+      "is_valid": true,
+      "confidence": 1.0,
+      "size": 4,
+      "validated_examples": [
+        9,
+        27,
+        29,
+        30
+      ],
+      "rejected_examples": []
+    }
+  ],
+  "overlaps": {}
+}

@@ -1,0 +1,8 @@
+[
+    {
+        "id": 9,
+        "category": "JOIN",
+        "nl": "找出修過 'CS-101' 這門課的所有學生姓名。",
+        "sql": "SELECT T1.name FROM student AS T1 JOIN takes AS T2 ON T1.ID = T2.ID WHERE T2.course_id = 'CS-101'"
+    }
+]

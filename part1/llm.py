@@ -14,9 +14,13 @@ import json
 import os
 from typing import Literal, Optional
 
+import httpx
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel, field_validator
+
+# LLM 請求超時設定（秒）— Ollama 在本地跑大模型時需要更長時間
+_LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
 
 # 載入 .env 環境變數
 load_dotenv()
@@ -114,6 +118,8 @@ class LLMRouter:
             self.client = OpenAI(
                 base_url=base_url,
                 api_key="ollama",  # Ollama 不需要真實 API key
+                timeout=httpx.Timeout(_LLM_TIMEOUT, connect=10.0),
+                max_retries=1,
             )
         else:
             # 預設使用 OpenAI
@@ -123,7 +129,11 @@ class LLMRouter:
                     "缺少 OPENAI_API_KEY。請在 .env 檔案中設定。"
                 )
             self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-            self.client = OpenAI(api_key=api_key)
+            self.client = OpenAI(
+                api_key=api_key,
+                timeout=httpx.Timeout(_LLM_TIMEOUT, connect=10.0),
+                max_retries=3,
+            )
 
     def generate_sql(
         self,

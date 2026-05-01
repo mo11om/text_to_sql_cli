@@ -8,3 +8,7 @@ requests>=2.31.0        # 備用 HTTP 請求 (Ollama health check)
 # ── 測試依賴 (Testing Dependencies) ────────────────────────────────────────────
 pytest>=8.1.0           # 測試框架
 pytest-timeout>=2.3.0   # 每個測試設定超時上限
+
+# ── 評估平台依賴 (Eval Platform Dependencies) ──────────────────────────────────
+sqlglot>=26.0.0         # SQL AST 解析與結構比較
+
