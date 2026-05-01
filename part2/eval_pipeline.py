@@ -25,10 +25,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "p
 
 import time
 import sqlite3
-from collections import Counter
+import pandas as pd
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Tuple, Dict
 
 from dotenv import load_dotenv
 
@@ -55,10 +55,7 @@ class EvalResult:
     gen_sql: Optional[str] = None        # LLM 生成的 SQL
     gen_status: str = ""                 # LLM 回傳狀態（SUCCESS / OUT_OF_SCOPE / ...）
     confidence: float = 0.0              # LLM 信心分數
-    precision: float = 0.0              # Multiset Precision
-    recall: float = 0.0                 # Multiset Recall
-    f1: float = 0.0                     # F1 Score
-    jaccard: float = 0.0                # Jaccard Index
+    ex_score: float = 0.0                # Execution-Based Accuracy (1.0 or 0.0)
     error_type: Optional[str] = None    # 錯誤類型（Execution Error / Result Overflow / ...）
     error_detail: Optional[str] = None  # 錯誤明細
     retry_count: int = 0                # 重試次數
@@ -84,187 +81,83 @@ class PipelineVersion:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# § 結果正規化（Canonical Normalization — §2.3）
+# § 安全執行引擎與 Pandas 驗證 (Execution & Pandas Validation)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def normalize_cell(value: Any) -> Any:
+def _execute_query_worker(db_path: str, sql: str, queue: multiprocessing.Queue) -> None:
     """
-    正規化單一儲存格值，確保比較一致性。
-
-    規則：
-    - None / NULL → None
-    - 數值型別統一：int 與 float 等價（1 == 1.0）
-    - 字串去除前後空白
-    - 其他型別直接回傳
-    """
-    if value is None:
-        return None
-    if isinstance(value, float):
-        # 若浮點數等於整數（如 1.0），轉為 int 以求一致
-        if value == int(value):
-            return int(value)
-        return value
-    if isinstance(value, str):
-        return value.strip()
-    return value
-
-
-def normalize_row(row: dict[str, Any]) -> tuple:
-    """
-    將一列資料正規化為可雜湊的 tuple。
-
-    固定欄位排序（按欄位名字母序），確保欄位順序一致。
-    """
-    # 按欄位名排序，統一順序
-    sorted_keys = sorted(row.keys())
-    return tuple(normalize_cell(row[k]) for k in sorted_keys)
-
-
-def normalize_results(rows: list[dict[str, Any]]) -> list[tuple]:
-    """正規化整批結果為 tuple 列表"""
-    return [normalize_row(r) for r in rows]
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# § 安全執行引擎（Process Isolation — §3）
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def _execute_in_process(
-    db_path: str,
-    sql: str,
-    result_queue: multiprocessing.Queue,
-) -> None:
-    """
-    在獨立行程中執行 SQL（行程隔離，避免主行程阻塞或崩潰）。
-
-    每次建立新的 SQLite 連線，執行後立即關閉。
-    結果透過 Queue 回傳給主行程。
+    在獨立行程中執行 SQL，將結果讀入 Pandas DataFrame。
     """
     conn = None
     try:
-        # 每次在子行程中建立新連線（唯讀模式）
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute(sql)
-        rows = cursor.fetchall()
-        result_queue.put(("OK", [dict(r) for r in rows]))
+        start_time = time.time()
+        df = pd.read_sql_query(sql, conn)
+        exec_time_ms = (time.time() - start_time) * 1000
+        
+        if len(df) > MAX_ROWS:
+            queue.put(("ERROR", "Result Overflow", f"結果包含 {len(df)} 行，超過上限 {MAX_ROWS}"))
+        else:
+            queue.put(("SUCCESS", df, exec_time_ms))
+            
+    except sqlite3.OperationalError as e:
+        queue.put(("ERROR", "Syntax Error", str(e)))
+    except sqlite3.DatabaseError as e:
+        queue.put(("ERROR", "Database Error", str(e)))
     except Exception as e:
-        result_queue.put(("ERROR", f"{type(e).__name__}: {e}"))
+        queue.put(("ERROR", type(e).__name__, str(e)))
     finally:
         if conn:
             conn.close()
 
-
-def safe_execute(
-    sql: str,
-    db_path: str = DB_PATH,
-    timeout: int = EXEC_TIMEOUT,
-) -> tuple[Optional[list[dict[str, Any]]], Optional[str]]:
-    """
-    安全執行 SQL：行程隔離 + 硬超時 + 結果大小護衛。
-
-    Args:
-        sql:      待執行的 SQL
-        db_path:  SQLite 資料庫路徑
-        timeout:  硬超時（秒）
-
-    Returns:
-        (rows, None)          — 成功，rows 為結果列表
-        (None, error_string)  — 失敗，含錯誤型別與訊息
-    """
-    result_queue: multiprocessing.Queue = multiprocessing.Queue()
+def _run_with_timeout(db_path: str, sql: str, timeout_sec: int) -> Tuple[str, Any, float]:
+    """執行 SQL 並加上硬超時機制"""
+    queue = multiprocessing.Queue()
     proc = multiprocessing.Process(
-        target=_execute_in_process,
-        args=(db_path, sql, result_queue),
-        daemon=True,
+        target=_execute_query_worker, 
+        args=(db_path, sql, queue),
+        daemon=True
     )
+    
     proc.start()
-    proc.join(timeout=timeout)
-
-    # 超時：強制終止子行程並清理
+    proc.join(timeout_sec)
+    
     if proc.is_alive():
         proc.terminate()
-        proc.join(timeout=2)
-        if proc.is_alive():
-            proc.kill()
-            proc.join(timeout=1)
-        return None, "Timeout: 查詢執行超過 {timeout}s 硬上限"
+        proc.join()
+        return "TIMEOUT", "執行超過硬上限", float(timeout_sec * 1000)
+        
+    if not queue.empty():
+        status, payload, exec_time_ms = queue.get()
+        return status, payload, exec_time_ms
+        
+    return "ERROR", "Process Failed to Return Data", 0.0
 
-    # 子行程已結束，取得結果
-    if result_queue.empty():
-        return None, "ProcessError: 子行程未回傳結果"
-
-    status, payload = result_queue.get_nowait()
-
-    if status == "ERROR":
-        return None, payload
-
-    rows = payload
-
-    # §3.3 結果大小護衛
-    if len(rows) > MAX_ROWS:
-        return None, f"Result Overflow: 結果包含 {len(rows)} 行，超過上限 {MAX_ROWS}"
-
-    return rows, None
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# § Multiset 指標計算（§2.1 + §2.2 + §5.1）
-# ═══════════════════════════════════════════════════════════════════════════════
-
-def compute_metrics(
-    gt_rows: list[tuple],
-    gen_rows: list[tuple],
-) -> dict[str, float]:
+def compare_dataframes(df_gt: pd.DataFrame, df_gen: pd.DataFrame) -> dict:
     """
-    使用 multiset 語意計算 Precision / Recall / F1 / Jaccard。
-
-    禁止使用 set()！全部使用 Counter 保留重複值。
-
-    邊界情況（§2.1）：
-    - GT=∅, GEN=∅  → P=1.0, R=1.0
-    - GT≠∅, GEN=∅  → P=0.0, R=0.0
-    - GT=∅, GEN≠∅  → P=0.0, R=1.0
-
-    Returns:
-        dict with keys: precision, recall, f1, jaccard
+    比較 Ground Truth 與 Generated 的 Pandas DataFrame (Execution-Based Accuracy)。
     """
-    gt_empty = len(gt_rows) == 0
-    gen_empty = len(gen_rows) == 0
-
-    # 邊界情況處理（§2.1）
-    if gt_empty and gen_empty:
-        return {"precision": 1.0, "recall": 1.0, "f1": 1.0, "jaccard": 1.0}
-    if gt_empty and not gen_empty:
-        return {"precision": 0.0, "recall": 1.0, "f1": 0.0, "jaccard": 0.0}
-    if not gt_empty and gen_empty:
-        return {"precision": 0.0, "recall": 0.0, "f1": 0.0, "jaccard": 0.0}
-
-    # Multiset 計算（§2.2 — 使用 Counter，禁止 set）
-    gt_counter = Counter(gt_rows)
-    gen_counter = Counter(gen_rows)
-
-    # 交集：每個元素取 min(gt_count, gen_count)
-    intersection = sum((gt_counter & gen_counter).values())
-    # 聯集：每個元素取 max(gt_count, gen_count)
-    union = sum((gt_counter | gen_counter).values())
-
-    # Precision = 交集 / 生成結果數
-    precision = intersection / len(gen_rows) if len(gen_rows) > 0 else 0.0
-    # Recall = 交集 / 真值結果數
-    recall = intersection / len(gt_rows) if len(gt_rows) > 0 else 0.0
-    # F1
-    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
-    # Jaccard = 交集 / 聯集
-    jaccard = intersection / union if union > 0 else 0.0
-
-    return {
-        "precision": round(precision, 4),
-        "recall": round(recall, 4),
-        "f1": round(f1, 4),
-        "jaccard": round(jaccard, 4),
-    }
+    if df_gt.empty and df_gen.empty:
+        return {"ex_score": 1.0, "error_type": None}
+        
+    if df_gt.shape != df_gen.shape:
+        return {"ex_score": 0.0, "error_type": "Shape Mismatch"}
+        
+    try:
+        df_gt_sorted = df_gt.sort_values(by=df_gt.columns.tolist()).reset_index(drop=True)
+        df_gen_sorted = df_gen.sort_values(by=df_gen.columns.tolist()).reset_index(drop=True)
+        
+        # Strip column names
+        df_gt_sorted.columns = range(df_gt_sorted.shape[1])
+        df_gen_sorted.columns = range(df_gen_sorted.shape[1])
+        
+        if df_gt_sorted.equals(df_gen_sorted):
+            return {"ex_score": 1.0, "error_type": None}
+        else:
+            return {"ex_score": 0.0, "error_type": "Value Mismatch"}
+            
+    except Exception as e:
+        return {"ex_score": 0.0, "error_type": f"Normalization Error: {type(e).__name__}"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -274,35 +167,25 @@ def compute_metrics(
 def validate_ground_truth(
     dataset: list[dict],
     db_path: str = DB_PATH,
-) -> dict[int, list[tuple]]:
+) -> dict[int, pd.DataFrame]:
     """
-    預先執行所有 Ground Truth SQL，驗證其正確性並快取結果。
+    預先執行所有 Ground Truth SQL，驗證其正確性並快取 Pandas DataFrame 結果。
 
     若任何 GT SQL 執行失敗 → 立即停止管線（RuntimeError）。
-
-    Args:
-        dataset:  eval_data.json 載入的題目列表
-        db_path:  SQLite 資料庫路徑
-
-    Returns:
-        dict[id → normalized_rows]: 每題 GT 的正規化結果快取
-
-    Raises:
-        RuntimeError: 若任何 GT SQL 無法執行
     """
-    cache: dict[int, list[tuple]] = {}
+    cache: dict[int, pd.DataFrame] = {}
     failures: list[dict] = []
 
     for item in dataset:
         qid = item["id"]
         gt_sql = item["sql"]
-        rows, error = safe_execute(gt_sql, db_path)
+        status, payload, _ = _run_with_timeout(db_path, gt_sql, timeout_sec=10)
 
-        if error is not None:
-            failures.append({"id": qid, "sql": gt_sql, "error": error})
+        if status != "SUCCESS":
+            failures.append({"id": qid, "sql": gt_sql, "error": payload})
             continue
 
-        cache[qid] = normalize_results(rows)
+        cache[qid] = payload
 
     if failures:
         msg = "\n".join(
@@ -322,7 +205,7 @@ def validate_ground_truth(
 
 def evaluate_single(
     item: dict,
-    gt_cache: dict[int, list[tuple]],
+    gt_cache: dict[int, pd.DataFrame],
     llm_router: Any,
     schema: str,
     db_path: str = DB_PATH,
@@ -407,35 +290,35 @@ def evaluate_single(
 
         # ── 安全執行 ──────────────────────────────────────────────────
         exec_start = time.time()
-        gen_rows_raw, exec_error = safe_execute(safe_sql, db_path)
-        exec_elapsed = (time.time() - exec_start) * 1000
+        status, payload, exec_elapsed = _run_with_timeout(db_path, safe_sql, timeout_sec=5)
         result.execution_latency_ms += exec_elapsed
 
-        if exec_error is not None:
-            last_error = exec_error
+        if status != "SUCCESS":
+            last_error = payload
             current_sql = safe_sql
 
             # 判斷是否可重試
             import sqlite3 as _sqlite3
-            mock_err = _sqlite3.OperationalError(exec_error)
+            mock_err = _sqlite3.OperationalError(payload)
             decision = retry_ctrl.should_retry(mock_err, safe_sql)
 
             if decision == "STOP" or retry_ctrl.retry_count >= MAX_RETRY:
-                result.error_type = "Execution Error"
-                result.error_detail = exec_error
+                result.error_type = status if status == "TIMEOUT" else "Execution Error"
+                result.error_detail = payload
                 result.retry_count = retry_ctrl.retry_count
                 break
 
             result.retry_count = retry_ctrl.retry_count
             continue  # 重試
 
-        # ── 執行成功：multiset 比較 ──────────────────────────────────
-        gen_rows = normalize_results(gen_rows_raw)
-        metrics = compute_metrics(gt_rows, gen_rows)
-        result.precision = metrics["precision"]
-        result.recall = metrics["recall"]
-        result.f1 = metrics["f1"]
-        result.jaccard = metrics["jaccard"]
+        # ── 執行成功：比較 DataFrames ──────────────────────────────────
+        df_gen = payload
+        comp_result = compare_dataframes(gt_rows, df_gen)
+        
+        result.ex_score = comp_result["ex_score"]
+        if comp_result["error_type"]:
+            result.error_type = comp_result["error_type"]
+            result.error_detail = "DataFrames do not match"
 
         if retry_ctrl.retry_count > 0:
             result.success_after_retry = True
@@ -538,14 +421,14 @@ def run_evaluation(
 
     # 摘要統計
     total = len(results)
-    success = sum(1 for r in results if r.f1 > 0)
-    perfect = sum(1 for r in results if r.f1 == 1.0)
-    avg_f1 = sum(r.f1 for r in results) / total if total > 0 else 0
+    success = sum(1 for r in results if r.ex_score > 0)
+    perfect = sum(1 for r in results if r.ex_score == 1.0)
+    avg_ex = sum(r.ex_score for r in results) / total if total > 0 else 0
     console.print(f"\n[bold green]📊 評估完成！[/bold green]")
     console.print(f"   總題數: {total}")
-    console.print(f"   成功 (F1>0): {success}")
-    console.print(f"   完美 (F1=1.0): {perfect}")
-    console.print(f"   平均 F1: {avg_f1:.4f}")
+    console.print(f"   成功 (EX Score>0): {success}")
+    console.print(f"   完美 (EX Score=1.0): {perfect}")
+    console.print(f"   平均 EX Score: {avg_ex:.4f}")
     console.print(f"   成品目錄: {output_dir}/")
 
     return results
@@ -567,7 +450,7 @@ def _save_artifacts(
     csv_path = os.path.join(output_dir, "eval_results.csv")
     fieldnames = [
         "id", "category", "nl", "gt_sql", "gen_sql", "gen_status",
-        "confidence", "precision", "recall", "f1", "jaccard",
+        "confidence", "ex_score",
         "error_type", "error_detail", "retry_count", "success_after_retry",
         "llm_latency_ms", "execution_latency_ms", "total_latency_ms",
     ]
@@ -578,7 +461,7 @@ def _save_artifacts(
             writer.writerow(asdict(r))
 
     # ── failures.json ─────────────────────────────────────────────────
-    failures = [asdict(r) for r in results if r.f1 < 1.0]
+    failures = [asdict(r) for r in results if r.ex_score < 1.0]
     failures_path = os.path.join(output_dir, "failures.json")
     with open(failures_path, "w", encoding="utf-8") as f:
         json.dump(failures, f, ensure_ascii=False, indent=2)
@@ -592,7 +475,7 @@ def _save_artifacts(
             "error_type": r.error_type,
         }
         for r in results
-        if r.f1 < 1.0  # 只對失敗題目做聚類分析
+        if r.ex_score < 1.0  # 只對失敗題目做聚類分析
     ]
     clustering_path = os.path.join(output_dir, "clustering_input.json")
     with open(clustering_path, "w", encoding="utf-8") as f:

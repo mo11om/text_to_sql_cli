@@ -202,3 +202,5 @@ pyrightconfig.json
 *.sqlite
 *.pyc
 *.sql
+part2/eval_results/
+part2/test_eval_results/
