@@ -29,12 +29,9 @@ import os
 import pytest
 from unittest.mock import MagicMock, patch
 
-# 確保可以從上層目錄 import 模組
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from validator import validate_sql, rewrite_sql
-from retry import RetryController, classify_error, MAX_RETRY
-from database import get_schema, execute_query, list_tables
+from part1.validator import validate_sql, rewrite_sql
+from part1.retry import RetryController, classify_error, MAX_RETRY
+from part1.database import get_schema, execute_query, list_tables
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -137,7 +134,7 @@ class TestHallucinationExecution:
     def test_nonexistent_column_raises_operational_error(self):
         """student.gpa 不存在 → SQLite 執行應拋出 OperationalError"""
         # 先確認 DB 已建立
-        from database import DB_PATH
+        from part1.database import DB_PATH
         if not os.path.exists(DB_PATH):
             pytest.skip("資料庫尚未建立，請先執行 setup_db.py")
 
@@ -178,7 +175,7 @@ class TestInvalidJoin:
 
     def test_nonexistent_table_raises_operational_error(self):
         """manager 資料表不存在 → OperationalError"""
-        from database import DB_PATH
+        from part1.database import DB_PATH
         if not os.path.exists(DB_PATH):
             pytest.skip("資料庫尚未建立，請先執行 setup_db.py")
 
@@ -330,10 +327,10 @@ class TestLimitRewriter:
     """驗證智慧 LIMIT 重寫器的各種邊界情形"""
 
     def test_no_limit_appended(self):
-        """沒有 LIMIT 的查詢 → 自動附加 LIMIT 100"""
+        """沒有 LIMIT 的查詢 → 自動附加 LIMIT 1000"""
         sql = "SELECT * FROM student"
         result = rewrite_sql(sql)
-        assert "LIMIT 100" in result
+        assert "LIMIT 1000" in result
 
     def test_existing_limit_preserved(self):
         """已有 LIMIT 的查詢 → 保留不變"""
@@ -353,17 +350,17 @@ class TestLimitRewriter:
         """結尾分號應被移除後再附加 LIMIT"""
         sql = "SELECT * FROM student;"
         result = rewrite_sql(sql)
-        assert result.endswith("LIMIT 100")
+        assert result.endswith("LIMIT 1000")
         assert ";" not in result
 
     def test_subquery_no_limit_added(self):
-        """含子查詢但無 LIMIT 的查詢 → 附加 LIMIT 100"""
+        """含子查詢但無 LIMIT 的查詢 → 附加 LIMIT 1000"""
         sql = (
             "SELECT s.name FROM student s "
             "WHERE s.tot_cred > (SELECT AVG(tot_cred) FROM student)"
         )
         result = rewrite_sql(sql)
-        assert result.endswith("LIMIT 100")
+        assert result.endswith("LIMIT 1000")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -393,7 +390,7 @@ class TestDatabaseIntegrity:
 
     def test_all_tables_exist(self):
         """確認 11 個預期資料表全部存在"""
-        from database import DB_PATH
+        from part1.database import DB_PATH
         if not os.path.exists(DB_PATH):
             pytest.skip("資料庫尚未建立，請先執行 setup_db.py")
 
@@ -407,7 +404,7 @@ class TestDatabaseIntegrity:
 
     def test_student_table_has_data(self):
         """student 資料表應有資料"""
-        from database import DB_PATH
+        from part1.database import DB_PATH
         if not os.path.exists(DB_PATH):
             pytest.skip("資料庫尚未建立，請先執行 setup_db.py")
 
@@ -416,7 +413,7 @@ class TestDatabaseIntegrity:
 
     def test_subquery_works(self):
         """子查詢應正常執行（回傳學分高於平均的學生）"""
-        from database import DB_PATH
+        from part1.database import DB_PATH
         if not os.path.exists(DB_PATH):
             pytest.skip("資料庫尚未建立，請先執行 setup_db.py")
 
@@ -430,7 +427,7 @@ class TestDatabaseIntegrity:
 
     def test_union_query_works(self):
         """UNION 查詢應正常執行（LIMIT 必須在整個 UNION 之後，非各分支）"""
-        from database import DB_PATH
+        from part1.database import DB_PATH
         if not os.path.exists(DB_PATH):
             pytest.skip("資料庫尚未建立，請先執行 setup_db.py")
 

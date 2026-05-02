@@ -12,7 +12,7 @@ import sqlite3
 import os
 
 # ── 資料庫路徑 ─────────────────────────────────────────────────────────────────
-DB_PATH = os.path.join(os.path.dirname(__file__), "college_2.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "college_2.db")
 
 # ── DDL：建立所有資料表 ────────────────────────────────────────────────────────
 DDL_STATEMENTS = [

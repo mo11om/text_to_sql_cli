@@ -23,7 +23,7 @@ from pydantic import BaseModel, field_validator
 _LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
 
 # 載入 .env 環境變數
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
 # ── 結構化輸出模型 ─────────────────────────────────────────────────────────────
