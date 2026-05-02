@@ -24,7 +24,8 @@ from rich.table import Table
 from rich import box
 
 from part1 import database
-from part1.llm import LLMRouter, SQLResponse
+from part1.llm import SQLResponse
+from part1.mac_agent import MACSQLPipeline
 from part1.retry import RetryController
 from part1.validator import validate_sql, rewrite_sql
 
@@ -155,7 +156,7 @@ def process_query(nl_query: str) -> None:
 
     # ② 初始化元件
     try:
-        llm = LLMRouter()
+        mac_pipeline = MACSQLPipeline()
     except EnvironmentError as e:
         console.print(f"[red]⚠️  環境設定錯誤: {e}[/red]")
         log_event(query, None, "CONFIG_ERROR", 0, str(e))
@@ -164,20 +165,29 @@ def process_query(nl_query: str) -> None:
     retry_ctrl = RetryController()
     schema = database.get_schema()
 
+    # Phase 1: Selector Agent
+    with console.status("[cyan]🤖 Agent 1: Selector 正在過濾 Schema...[/cyan]"):
+        pruned_schema = mac_pipeline.run_selector(query, schema)
+
     current_sql: str | None = None
     last_error: str | None = None
 
     # ---------- 查詢生成與執行迴圈 ----------
     while True:
-        # ③ LLM 產生 SQL
-        with console.status("[cyan]🤖 LLM 正在生成 SQL...[/cyan]"):
+        # Phase 2 & 3: Decomposer / Refiner Agent
+        with console.status("[cyan]🤖 Agent 2/3: 正在生成/修正 SQL...[/cyan]"):
             try:
-                response: SQLResponse = llm.generate_sql(
-                    nl_query=query,
-                    schema=schema,
-                    previous_sql=current_sql,
-                    error_message=last_error,
-                )
+                if last_error and current_sql:
+                    response: SQLResponse = mac_pipeline.run_refiner(
+                        pruned_schema=pruned_schema,
+                        previous_sql=current_sql,
+                        error_message=last_error,
+                    )
+                else:
+                    response: SQLResponse = mac_pipeline.run_decomposer(
+                        nl_query=query,
+                        pruned_schema=pruned_schema,
+                    )
             except ValueError as e:
                 # LLM 輸出無法解析
                 console.print(f"[red]❌ LLM 輸出解析失敗: {e}[/red]")
