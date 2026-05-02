@@ -18,10 +18,6 @@ import csv
 import json
 import multiprocessing
 import os
-import sys
-
-# Add part1 to sys.path so we can import its modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "part1")))
 
 import time
 import sqlite3
@@ -33,12 +29,12 @@ from typing import Any, Optional, Tuple, Dict
 from dotenv import load_dotenv
 
 # ── 載入環境變數 ────────────────────────────────────────────────────────────────
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "part1", ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 # ── 常數設定 ────────────────────────────────────────────────────────────────────
-MAX_ROWS = 100          # 結果行數上限，超過即標記為 Result Overflow
+MAX_ROWS = 1000         # 結果行數上限，超過即標記為 Result Overflow
 EXEC_TIMEOUT = 5        # 查詢執行硬超時（秒）
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "part1", "college_2.db"))
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "college_2.db"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -226,9 +222,9 @@ def evaluate_single(
     Returns:
         EvalResult: 完整評估結果
     """
-    from llm import SQLResponse
-    from retry import RetryController, MAX_RETRY
-    from validator import validate_sql, rewrite_sql
+    from part1.llm import SQLResponse
+    from part1.retry import RetryController, MAX_RETRY
+    from part1.validator import validate_sql, rewrite_sql
 
     qid = item["id"]
     category = item["category"]
@@ -358,8 +354,8 @@ def run_evaluation(
     """
     from rich.console import Console
     from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
-    from llm import LLMRouter
-    import database
+    from part1.llm import LLMRouter
+    from part1 import database
 
     console = Console()
     os.makedirs(output_dir, exist_ok=True)

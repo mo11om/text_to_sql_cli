@@ -14,7 +14,7 @@ import os
 from typing import Any
 
 # ── 資料庫路徑 ─────────────────────────────────────────────────────────────────
-DB_PATH = os.path.join(os.path.dirname(__file__), "college_2.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "college_2.db")
 
 # ── URI 模式：唯讀連線字串 ─────────────────────────────────────────────────────
 # ?mode=ro 確保 SQLite 不允許任何寫入操作

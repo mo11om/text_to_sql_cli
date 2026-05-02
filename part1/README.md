@@ -1,9 +1,3 @@
-這是一份為你量身打造、整合了 v5 規格書與實作 Walkthrough 的 **Staff-level README** 草稿。這份文件不僅展示了如何使用這個工具，更深刻闡述了你的系統設計思維與防禦架構，絕對能讓面試官留下極深的印象。
-
-你可以直接複製以下 Markdown 內容，貼入你的 `README.md` 檔案中：
-
----
-
 # Part 1: Hardened Text-to-SQL CLI (Build, Break, Harden)
 
 ## 📌 系統概述 (Overview)
@@ -13,25 +7,33 @@
 
 ---
 
-## 📂 專案結構 (Project Structure)
+## 📂 專案結構 (Unified Project Structure)
+專案現已整合為統一的模組架構，所有執行皆以根目錄為起點：
 
 ```text
 text_to_sql/
 ├── .env.example          # 環境變數設定範本 (支援 OpenAI / Ollama)
+├── .env                  # 本機開發環境變數配置
 ├── requirements.txt      # 依賴套件清單
-├── setup_db.py           # 冪等性資料庫初始化腳本 (11 張表, 125 筆真實資料)
-├── database.py           # 唯讀 SQLite 執行引擎 (強制使用 ?mode=ro URI)
-├── validator.py          # SQL 安全驗證器 + 智慧型 LIMIT 複寫器
-├── llm.py                # LLM 路由與結構化輸出 (基於 Pydantic & Instructor)
-├── retry.py              # 錯誤分類器 + 具備收斂保護的重試機制
-├── app.py                # Typer CLI 主程式 + Rich 終端機 UI 渲染
-└── tests/
-    └── test_break.py     # 35 個對抗性與破壞性測試案例 (14 個錯誤類別)
+├── college_2.db          # 唯讀測試資料庫
+├── part1/                # Text-to-SQL 核心防禦與執行系統
+│   ├── __init__.py
+│   ├── app.py            # Typer CLI 主程式 + Rich 終端機 UI 渲染
+│   ├── database.py       # 唯讀 SQLite 執行引擎 (強制使用 ?mode=ro URI)
+│   ├── llm.py            # LLM 路由與結構化輸出 (基於 Pydantic)
+│   ├── retry.py          # 錯誤分類器 + 具備收斂保護的重試機制
+│   ├── setup_db.py       # 冪等性資料庫初始化腳本
+│   ├── validator.py      # SQL 安全驗證器 + 智慧型 LIMIT 複寫器
+│   └── tests/
+│       └── test_break.py # 35 個對抗性與破壞性測試案例
+└── part2/                # 評估與分析管線 (見 part2/README.md)
 ```
 
 ---
 
 ## 🚀 快速啟動 (Setup & Usage)
+
+> **[!] 重要提示**：所有指令請在專案根目錄 (`text_to_sql/`) 下執行。
 
 ### 1. 環境建置
 請確認已安裝 Python 3.10+，並啟用虛擬環境：
@@ -53,15 +55,15 @@ cp .env.example .env
 ### 3. 初始化真實資料庫 (One-time setup)
 執行以下指令建立 Spider 1.0 的 `college_2` 真實關聯式資料庫，並載入測試資料：
 ```bash
-python setup_db.py
+python -m part1.setup_db
 ```
 
 ### 4. 執行查詢
 你可以使用自然語言進行單次查詢，支援中英文混合與複雜條件：
 ```bash
-python app.py "List all students in Computer Science"
-python app.py "列出修超過平均學分數的學生"
-python app.py "Show students and their advisor's name"
+python -m part1.app "List all students in Computer Science"
+python -m part1.app "列出修超過平均學分數的學生"
+python -m part1.app "Show students and their advisor's name"
 ```
 
 ---
@@ -82,7 +84,13 @@ python app.py "Show students and their advisor's name"
 
 ## 💥 破壞性測試結果 (Break It: Test Results)
 
-本專案包含一個全面的 `test_break.py` 測試套件，涵蓋 14 種破壞性情境，共計 35 個斷言測試。**所有測試皆以 0.03 秒全數通過 (`35 passed`)**，證明系統堅不可摧。
+本專案包含一個全面的 `test_break.py` 測試套件，涵蓋 14 種破壞性情境，共計 35 個斷言測試。
+
+若要執行完整測試，請於根目錄輸入：
+```bash
+PYTHONPATH=. pytest part1/tests/test_break.py
+```
+**所有測試皆以 0.03 秒全數通過 (`35 passed`)**，證明系統堅不可摧。
 
 * ✅ **對抗性攻擊 (Adversarial):** Prompt Injection (3), SQL Injection (3), Comment Attack (2), Multi-statement Attack (2).
 * ✅ **幻覺與結構錯誤 (Hallucination & Logic):** 捏造欄位/薪水 (3), 不合法的 JOIN 關聯 (2).

@@ -22,7 +22,7 @@ from typing import Any, Optional
 
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "part1", ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -418,7 +418,7 @@ def run_cross_model_analysis(
     all_ids: set[int] = set()
 
     for model, results in all_model_results.items():
-        failed_ids = {r["id"] for r in results if r.get("f1", 0) < 1.0}
+        failed_ids = {r["id"] for r in results if r.get("ex_score", 0) < 1.0}
         model_failures[model] = failed_ids
         all_ids.update(r["id"] for r in results)
 

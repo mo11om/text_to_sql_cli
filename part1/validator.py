@@ -33,7 +33,7 @@ _MULTI_STMT_RE = re.compile(r";(?!\s*$)", re.IGNORECASE)
 _LIMIT_RE = re.compile(r"\bLIMIT\s+\d+\b", re.IGNORECASE)
 
 # 預設行數上限（避免 LLM 生成大量資料撈取）
-DEFAULT_LIMIT = 100
+DEFAULT_LIMIT = 1000
 
 
 def validate_sql(sql: str) -> None:

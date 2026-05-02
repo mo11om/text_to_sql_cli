@@ -23,10 +23,10 @@ from rich.panel import Panel
 from rich.table import Table
 from rich import box
 
-import database
-from llm import LLMRouter, SQLResponse
-from retry import RetryController
-from validator import validate_sql, rewrite_sql
+from part1 import database
+from part1.llm import LLMRouter, SQLResponse
+from part1.retry import RetryController
+from part1.validator import validate_sql, rewrite_sql
 
 # ── Rich 終端輸出物件 ──────────────────────────────────────────────────────────
 console = Console()
