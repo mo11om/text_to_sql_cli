@@ -121,7 +121,21 @@ class LLMRouter:
                 timeout=httpx.Timeout(_LLM_TIMEOUT, connect=10.0),
                 max_retries=1,
             )
-        else:
+        elif self.provider == "gemini":
+            # Gemini 使用 Google OpenAI 相容端點
+            api_key = os.getenv("GEMINI_API_KEY", "")
+            if not api_key:
+                raise EnvironmentError(
+                    "缺少 GEMINI_API_KEY。請在 .env 檔案中設定。"
+                )
+            self.model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            self.client = OpenAI(
+                api_key=api_key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                timeout=httpx.Timeout(_LLM_TIMEOUT, connect=10.0),
+                max_retries=3,
+            )
+        elif self.provider == "openai":
             # 預設使用 OpenAI
             api_key = os.getenv("OPENAI_API_KEY", "")
             if not api_key:
