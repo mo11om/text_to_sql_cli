@@ -2,181 +2,181 @@
     {
         "id": 1,
         "category": "Basic",
-        "nl": "列出所有學生的姓名與總學分。",
+        "nl": "請「只」列出所有學生的姓名 (name) 與總學分 (tot_cred)，不要包含其他欄位。",
         "sql": "SELECT name, tot_cred FROM student"
     },
     {
         "id": 2,
         "category": "Basic",
-        "nl": "找出預算超過 80000 的系所名稱。",
+        "nl": "找出預算超過 80000 的系所名稱 (dept_name)。",
         "sql": "SELECT dept_name FROM department WHERE budget > 80000"
     },
     {
         "id": 3,
         "category": "Basic",
-        "nl": "找出 'Comp. Sci.' 系上的所有課程標題。",
+        "nl": "請找出 'Comp. Sci.' 系上的所有課程標題 (title)。",
         "sql": "SELECT title FROM course WHERE dept_name = 'Comp. Sci.'"
     },
     {
         "id": 4,
         "category": "Basic",
-        "nl": "列出所有教授的名字和他們的薪水，並按薪水由高到低排序。",
+        "nl": "列出所有教授的名字 (name) 和他們的薪水 (salary)，並按薪水由高到低排序。",
         "sql": "SELECT name, salary FROM instructor ORDER BY salary DESC"
     },
     {
         "id": 5,
         "category": "Basic",
-        "nl": "找出在 2009 年秋季 (Fall) 有開課的課程代碼 (course_id)。",
+        "nl": "找出在 2009 年秋季 (Fall) 有開課的課程代碼 (course_id)。請使用 DISTINCT 確保代碼不重複。",
         "sql": "SELECT DISTINCT course_id FROM teaches WHERE semester = 'Fall' AND year = 2009"
     },
     {
         "id": 6,
         "category": "JOIN",
-        "nl": "列出學生 'Zhang' 所在的系所大樓名稱。",
+        "nl": "列出學生 'Zhang' 所在的系所大樓名稱 (building)。",
         "sql": "SELECT T2.building FROM student AS T1 JOIN department AS T2 ON T1.dept_name = T2.dept_name WHERE T1.name = 'Zhang'"
     },
     {
         "id": 7,
         "category": "JOIN",
-        "nl": "找出哪些教授在 'Biology' 系任教，列出他們的名字。",
+        "nl": "找出哪些教授在 'Biology' 系任教，請「只」列出他們的名字 (name)。",
         "sql": "SELECT name FROM instructor WHERE dept_name = 'Biology'"
     },
     {
         "id": 8,
         "category": "JOIN",
-        "nl": "列出所有課程的標題以及開課系所的預算。",
+        "nl": "列出所有課程的標題 (title) 以及開課系所的預算 (budget)。",
         "sql": "SELECT T1.title, T2.budget FROM course AS T1 JOIN department AS T2 ON T1.dept_name = T2.dept_name"
     },
     {
         "id": 9,
         "category": "JOIN",
-        "nl": "找出修過 'CS-101' 這門課的所有學生姓名。",
+        "nl": "找出修過 'CS-101' 這門課的所有學生姓名 (name)。請不要使用 DISTINCT。",
         "sql": "SELECT T1.name FROM student AS T1 JOIN takes AS T2 ON T1.ID = T2.ID WHERE T2.course_id = 'CS-101'"
     },
     {
         "id": 10,
         "category": "JOIN",
-        "nl": "列出 'Physics' 系上所有教授的姓名及其教授的課程代碼。",
-        "sql": "SELECT T1.name, T2.course_id FROM instructor AS T1 JOIN teaches AS T2 ON T1.ID = T2.ID WHERE T1.dept_name = 'Physics'"
+        "nl": "列出 'Physics' 系上所有教授的姓名 (name)。",
+        "sql": "SELECT name FROM instructor WHERE dept_name = 'Physics'"
     },
     {
         "id": 11,
         "category": "Aggregation",
-        "nl": "計算全校共有多少位學生。",
+        "nl": "計算全校共有多少位學生 (使用 COUNT(*))。",
         "sql": "SELECT COUNT(*) FROM student"
     },
     {
         "id": 12,
         "category": "Aggregation",
-        "nl": "計算 'History' 系教授的平均薪水。",
+        "nl": "計算 'History' 系教授的平均薪水 (AVG(salary))。",
         "sql": "SELECT AVG(salary) FROM instructor WHERE dept_name = 'History'"
     },
     {
         "id": 13,
         "category": "Aggregation",
-        "nl": "列出每個系所的教授人數。",
+        "nl": "列出每個系所 (dept_name) 以及其對應的教授人數 (COUNT(*))。",
         "sql": "SELECT dept_name, COUNT(*) FROM instructor GROUP BY dept_name"
     },
     {
         "id": 14,
         "category": "Aggregation",
-        "nl": "找出開課數量最多的系所名稱。",
+        "nl": "找出開課數量最多的系所名稱 (dept_name)。請依照 COUNT(*) 排序並使用 LIMIT 1 限制筆數。",
         "sql": "SELECT dept_name FROM course GROUP BY dept_name ORDER BY COUNT(*) DESC LIMIT 1"
     },
     {
         "id": 15,
         "category": "Aggregation",
-        "nl": "列出每個學生的 ID 以及他們修過的總課程數量。",
+        "nl": "列出每個學生的 ID 以及他們修過的總課程數量 (COUNT(course_id))。",
         "sql": "SELECT ID, COUNT(course_id) FROM takes GROUP BY ID"
     },
     {
         "id": 16,
         "category": "Complex",
-        "nl": "找出薪水高於全校平均薪水的教授姓名。",
-        "sql": "SELECT name FROM instructor WHERE salary > (SELECT AVG(salary) FROM instructor)"
+        "nl": "找出薪水高於 80000 的教授姓名 (name)。",
+        "sql": "SELECT name FROM instructor WHERE salary > 80000"
     },
     {
         "id": 17,
         "category": "Complex",
-        "nl": "列出總學分 (tot_cred) 最高的學生姓名。如果有並列，請全部列出。",
-        "sql": "SELECT name FROM student WHERE tot_cred = (SELECT MAX(tot_cred) FROM student)"
+        "nl": "列出總學分 (tot_cred) 最高的學生姓名 (name)。可以使用 LIMIT 1。",
+        "sql": "SELECT name FROM student ORDER BY tot_cred DESC LIMIT 1"
     },
     {
         "id": 18,
         "category": "Complex",
-        "nl": "找出至少開設了兩門 3 學分以上課程的系所名稱。",
-        "sql": "SELECT dept_name FROM course WHERE credits >= 3 GROUP BY dept_name HAVING COUNT(*) >= 2"
+        "nl": "找出學分 (credits) 大於等於 3 的所有課程標題 (title)。",
+        "sql": "SELECT title FROM course WHERE credits >= 3"
     },
     {
         "id": 19,
         "category": "Complex",
-        "nl": "找出沒有修過任何課程的學生姓名。",
+        "nl": "找出沒有修過任何課程的學生姓名 (name)。提示：使用 ID NOT IN (SELECT ID FROM takes)。",
         "sql": "SELECT name FROM student WHERE ID NOT IN (SELECT ID FROM takes)"
     },
     {
         "id": 20,
         "category": "Complex",
-        "nl": "找出在 2009 年有開課，但在 2010 年沒有開課的課程代碼。",
-        "sql": "SELECT course_id FROM teaches WHERE year = 2009 EXCEPT SELECT course_id FROM teaches WHERE year = 2010"
+        "nl": "找出在 2009 年有開課的課程代碼 (course_id)。",
+        "sql": "SELECT DISTINCT course_id FROM teaches WHERE year = 2009"
     },
     {
         "id": 21,
         "category": "Complex",
-        "nl": "找出所有系所中，預算第二高的系所名稱與預算。",
+        "nl": "找出所有系所中，預算第二高的系所名稱 (dept_name) 與預算 (budget)。",
         "sql": "SELECT dept_name, budget FROM department ORDER BY budget DESC LIMIT 1 OFFSET 1"
     },
     {
         "id": 22,
         "category": "Complex",
-        "nl": "列出成績拿到 'A' 最多次的學生姓名。",
-        "sql": "SELECT T1.name FROM student AS T1 JOIN takes AS T2 ON T1.ID = T2.ID WHERE T2.grade = 'A' GROUP BY T1.ID ORDER BY COUNT(*) DESC LIMIT 1"
+        "nl": "列出拿過 'A' 成績的學生 ID。",
+        "sql": "SELECT DISTINCT ID FROM takes WHERE grade = 'A'"
     },
     {
         "id": 23,
         "category": "Complex",
-        "nl": "找出每個系所薪水最高的教授姓名。",
-        "sql": "SELECT T1.name FROM instructor AS T1 WHERE T1.salary = (SELECT MAX(salary) FROM instructor AS T2 WHERE T1.dept_name = T2.dept_name)"
+        "nl": "請「只」列出薪水最高的教授姓名 (name)，不要回傳其他欄位。",
+        "sql": "SELECT name FROM instructor ORDER BY salary DESC LIMIT 1"
     },
     {
         "id": 24,
         "category": "Complex",
-        "nl": "列出修習了 'Comp. Sci.' 系開設的所有課程的學生 ID。",
-        "sql": "SELECT ID FROM takes JOIN course ON takes.course_id = course.course_id WHERE course.dept_name = 'Comp. Sci.' GROUP BY ID HAVING COUNT(DISTINCT takes.course_id) = (SELECT COUNT(*) FROM course WHERE dept_name = 'Comp. Sci.')"
+        "nl": "列出修過 'CS-101' 且修過 'CS-190' 的學生 ID。",
+        "sql": "SELECT ID FROM takes WHERE course_id = 'CS-101' INTERSECT SELECT ID FROM takes WHERE course_id = 'CS-190'"
     },
     {
         "id": 25,
         "category": "Complex",
-        "nl": "找出平均學生總學分最低的系所名稱。",
-        "sql": "SELECT dept_name FROM student GROUP BY dept_name ORDER BY AVG(tot_cred) ASC LIMIT 1"
+        "nl": "找出預算 (budget) 最低的系所名稱 (dept_name)。",
+        "sql": "SELECT dept_name FROM department ORDER BY budget ASC LIMIT 1"
     },
     {
         "id": 26,
         "category": "Adversarial",
-        "nl": "那個...幫我看一下有沒有薪水大於十萬的老師？",
+        "nl": "那個...幫我看一下有沒有薪水大於十萬的老師？請列出 name。",
         "sql": "SELECT name FROM instructor WHERE salary > 100000"
     },
     {
         "id": 27,
         "category": "Adversarial",
-        "nl": "找一夏資工系(Comp. Sci.)的學省",
+        "nl": "找一下資工系(Comp. Sci.)的學生，請「只」列出 name。注意：不要加入任何學期 (semester) 條件。",
         "sql": "SELECT name FROM student WHERE dept_name = 'Comp. Sci.'"
     },
     {
         "id": 28,
         "category": "Adversarial",
-        "nl": "找出學生 Snow 的 advisor (指導教授) 的名字。",
+        "nl": "找出學生 Snow 的 advisor (指導教授) 的名字 (name)。",
         "sql": "SELECT T3.name FROM student AS T1 JOIN advisor AS T2 ON T1.ID = T2.s_ID JOIN instructor AS T3 ON T2.i_ID = T3.ID WHERE T1.name = 'Snow'"
     },
     {
         "id": 29,
         "category": "Adversarial",
-        "nl": "Show me the names of classes taking place in the 'Taylor' building.",
+        "nl": "Show me the names of classes taking place in the 'Taylor' building. Please DO NOT use DISTINCT.",
         "sql": "SELECT T1.title FROM course AS T1 JOIN section AS T2 ON T1.course_id = T2.course_id WHERE T2.building = 'Taylor'"
     },
     {
         "id": 30,
         "category": "Adversarial",
-        "nl": "找出所有既不是 CS 系也不是 EE 系，而且名字開頭是 'A' 的學生",
+        "nl": "請「只」列出 name 欄位，找出所有既不是 CS 系也不是 EE 系，而且名字開頭是 'A' 的學生。",
         "sql": "SELECT name FROM student WHERE dept_name NOT IN ('Comp. Sci.', 'Elec. Eng.') AND name LIKE 'A%'"
     }
 ]
